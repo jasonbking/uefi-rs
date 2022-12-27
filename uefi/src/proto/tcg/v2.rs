@@ -134,7 +134,13 @@ pub struct Tcg {
     // TODO: fill these in and provide a public interface.
     get_event_log: unsafe extern "efiapi" fn() -> Status,
     hash_log_extend_event: unsafe extern "efiapi" fn() -> Status,
-    submit_command: unsafe extern "efiapi" fn() -> Status,
+    submit_command: unsafe extern "efiapi" fn(
+        this: *mut Tcg,
+        input_parameter_block_size: u32,
+        input_parameter_block: *const u8,
+        output_parameter_block_size: u32,
+        output_parameter_block: *mut u8,
+    ) -> Status,
     get_active_pcr_banks: unsafe extern "efiapi" fn() -> Status,
     set_active_pcr_banks: unsafe extern "efiapi" fn() -> Status,
     get_result_of_set_active_pcr_banks: unsafe extern "efiapi" fn() -> Status,
@@ -145,5 +151,13 @@ impl Tcg {
     pub fn get_capability(&mut self) -> Result<BootServiceCapability> {
         let mut capability = BootServiceCapability::default();
         unsafe { (self.get_capability)(self, &mut capability).into_with_val(|| capability) }
+    }
+
+    /// Send a command to the TPM device.
+    pub fn submit_command<'a>(&mut self, cmd: &[u8], resp: &'a mut [u8]) -> Result {
+        let in_size: u32 = cmd.len().try_into().unwrap();
+        let out_size: u32 = resp.len().try_into().unwrap();
+        unsafe { (self.submit_command)(self, in_size, cmd.as_ptr(), out_size, resp.as_mut_ptr()) }
+            .into()
     }
 }
