@@ -141,9 +141,15 @@ pub struct Tcg {
         output_parameter_block_size: u32,
         output_parameter_block: *mut u8,
     ) -> Status,
-    get_active_pcr_banks: unsafe extern "efiapi" fn() -> Status,
-    set_active_pcr_banks: unsafe extern "efiapi" fn() -> Status,
-    get_result_of_set_active_pcr_banks: unsafe extern "efiapi" fn() -> Status,
+    get_active_pcr_banks:
+        unsafe extern "efiapi" fn(this: *mut Tcg, active_pcr_banks: *mut HashAlgorithm) -> Status,
+    set_active_pcr_banks:
+        unsafe extern "efiapi" fn(this: *mut Tcg, active_pcr_banks: u32) -> Status,
+    get_result_of_set_active_pcr_banks: unsafe extern "efiapi" fn(
+        this: *mut Tcg,
+        operation_present: *mut u32,
+        response: *mut u32,
+    ) -> Status,
 }
 
 impl Tcg {
@@ -159,5 +165,24 @@ impl Tcg {
         let out_size: u32 = resp.len().try_into().unwrap();
         unsafe { (self.submit_command)(self, in_size, cmd.as_ptr(), out_size, resp.as_mut_ptr()) }
             .into()
+    }
+
+    /// Return the bitmap of currently active PCR banks.
+    pub fn get_active_pcr_banks(&mut self) -> Result<HashAlgorithm> {
+        let mut banks: HashAlgorithm = HashAlgorithm::default();
+        unsafe { (self.get_active_pcr_banks)(self, &mut banks).into_with_val(|| banks) }
+    }
+
+    /// Sets the currently active PCR banks.
+    pub fn set_active_pcr_banks(&mut self, banks: &HashAlgorithm) -> Result {
+        unsafe { (self.set_active_pcr_banks)(self, banks.bits) }.into()
+    }
+
+    /// Get the result of a previous set_active_pcr_banks() call.
+    pub fn get_result_of_set_active_pcr_banks(&mut self) -> Result<Option<u32>> {
+        let mut op_present: u32 = 0;
+        let mut banks: u32 = 0;
+        unsafe { (self.get_result_of_set_active_pcr_banks)(self, &mut op_present, &mut banks) }
+            .into_with_val(|| if op_present == 0 { None } else { Some(banks) })
     }
 }
