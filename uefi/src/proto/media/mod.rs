@@ -14,3 +14,4 @@ pub mod disk_info;
 pub mod fs;
 pub mod load_file;
 pub mod partition;
+pub mod security_cmd;
